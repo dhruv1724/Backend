@@ -15,5 +15,14 @@ app.use(express.json({
 
 app.use(express.urlencoded({extended: true, limit: '16KB' })) //this is used to parse the urlencoded data coming from the frontend in the request body. It is used when the frontend is sending data in the form of key-value pairs (like form data) instead of json data.
 app.use(express.static('public')) //this is used to serve the static files (like images, css files, js files) from the public folder. So if we have any static files that we want to serve to the frontend, we can put them in the public folder and they will be accessible from the frontend.
-app.use(cookieParser()) //this is used to parse the cookies coming from the frontend in the request headers. It will make the cookies available in the req.cookies object in the route handlers.
+app.use(cookieParser()); //this is used to parse the cookies coming from the frontend in the request headers. It will make the cookies available in the req.cookies object in the route handlers.
+
+//routes
+
+import userRouter from './routes/user.routes.js';
+
+//routes declaration
+//when we were not using router we were using app.get  because controllers were directly defined in the app.js file but 
+//now we have moved the controllers to separate files and we are using router to define the routes in those files, so we need to use app.use to use those routes in the app.js file.
+app.use('/api/v1/users', userRouter); //this  is prefix for all the routes defined in the userRouter. 
 export { app }
