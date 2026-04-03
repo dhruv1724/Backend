@@ -1,10 +1,10 @@
 import {asyncHandler} from '../utils/asyncHandler.js';
 import {ApiError} from '../utils/ApiError.js';
 import {User} from '../models/user.model.js';
-import {uploadOnCloudinary, uploadToCloudinary} from '../utils/cloudinary.js';
+import {uploadOnCloudinary} from '../utils/cloudinary.js';
 import {ApiResponse} from '../utils/ApiResponse.js';
 
-const registerUser= asyncHandler(async(req,res)=>{
+const registerUser= asyncHandler(async(req,res,next)=>{
     //get user details from frontend 
     //validation - non empty fields, email format, password strength
     //check if user already exists in database mail and username unique check 
@@ -17,27 +17,32 @@ const registerUser= asyncHandler(async(req,res)=>{
     //return response
     const {username,fullname,email,password}=req.body;
     //console.log("email: ",email)
-
+    
     if([fullname,email,password,username].some((field)=> field?.trim()=='')){
         throw new ApiError(400,'All fields are required'); //400 bad request
     }
 
-    const existedUser=User.findOne({ $or:[{email}, {username}] })
+    const existedUser=await User.findOne({ $or:[{email}, {username}] })
 
     if(existedUser){
         throw new ApiError(409,'User with email or username already exists'); //409 conflict
     }
 
     const avatarLocalPath=req.files?.avatar[0]?.path; //multer se file upload hone ke baad req.files me aata hai, avatar field ke andar, aur uska path chahiye hume cloudinary me upload karne ke liye
-    const coverImageLocalPath=req.files?.coverImage?.[0]?.path; //coverImage field ke andar bhi ho sakta hai
+
+    //const coverImageLocalPath=req.files?.coverImage[0]?.path; //coverImage field ke andar bhi ho sakta hai
+    console.log(req.files);
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
+        coverImageLocalPath=req.files.coverImage[0].path;
+    }
     if(!avatarLocalPath){ 
         throw new ApiError(400,'Avatar image is required'); //400 bad request
     }
-    if(!coverImageLocalPath){ 
-        throw new ApiError(400,'Cover image is required'); //400 bad request
-    }
+    
 
     const avatar=await uploadOnCloudinary(avatarLocalPath)
+    
     const coverImage=await uploadOnCloudinary(coverImageLocalPath)
 
     if(!avatar){

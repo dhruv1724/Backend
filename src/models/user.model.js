@@ -52,10 +52,10 @@ const userSchema = new Schema(
 
 userSchema.pre("save",async function(next){
     if(!this.isModified("password")) {
-        return next();
+        return ;
     }//only hash the password if it is modified or new
     this.password= await bcrypt.hash(this.password,10) //10 is the salt rounds
-    next();
+    
 }) //idhar no arrow function nhi as it does not know context
 //and here context is important this is implemented just before saving
 
