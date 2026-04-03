@@ -16,11 +16,15 @@ const uploadOnCloudinary= async (localFilePath)=>{
             resource_type: 'auto', 
         })
         //file has been uploaded successfully
-        console.log("file is uploaded on cloudinar ", response.url);
+        fs.unlinkSync(localFilePath) //remove the file from local storage as upload operation is successful
         return response //this response will be sent to the client
     } catch (error) {
         console.error("error while uploading file on cloudinary ", error);
-        fs.unlink(localFilePath) //remove the file from local storage as upload operation is failed
+         // delete if exists
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+        }
+ //remove the file from local storage as upload operation is failed
         //server se hta do ab kyukki server pr hai but cloudinary pr nahi gya
         return null
     }
