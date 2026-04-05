@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (req, res) => {
   //get user details from frontend
@@ -373,6 +374,131 @@ const updateCoverImage = asyncHandler(async(req,res)=>{
 
 });
 
+const getUserChannelProfile= asyncHandler(async(req,res)=>{
+  const {username}=req.params; //url se data lena
+
+  if(!username?.trim()){
+    throw new ApiError(400,"username is missing")
+  }
+
+  const channel=await User.aggregate([
+    {
+      $match:{
+        username: username //database se voh document aa gya jahan username vhi hai jo param se mila
+      }
+    },
+    {
+      $lookup:{
+        from:"subscriptions",//username dekho konse konse subscription document mei hai
+        localField:"_id",
+        foreignField:"channel",
+        as:"subscribers" //konse konse document mei channel mei yeh username/id available hai
+      }
+    },
+    {
+      $lookup:{
+        from:"subscriptions",//username dekho konse konse subscription document mei hai
+        localField:"_id",
+        foreignField:"subcriber", //hum ab yeh dekh rhe hai iss username ki id konse konse document as a subcriber field mei hai
+        as:"subscribedTo" //konse konse document mei channel mei yeh username available hai
+      }
+    },
+    {
+      $addFields:{
+        subscribersCount:{
+          $size: "$subscribers"
+        },
+        channelsSubscribedTo:{
+          $size:"$subscribedTo"
+        },
+        isSubscribed:{
+          $cond:{
+            if:{$in: [req.user?._id, "$subscribers.subcriber"]},
+            then: true,
+            else: false
+          }
+        }
+      }
+    },//user model mei ab yeh do field add ho gyi hai
+    {
+      $project: {
+        fullname:1,
+        username:1,
+        subscribersCount:1,
+        channelsSubscribedTo:1,
+        isSubscribed:1,
+        avatar:1,
+        coverImage:1 //project only voh field bhejta hai jo required hai not all the field 
+      }
+    }
+  ])
+
+  if(!channel?.length){
+    throw new ApiError(404,"channel does not exist")
+  }
+
+  return res.send(200).json(
+    new ApiResponse(200,channel[0],"profile of channel fetched successfully")
+  )
+})
+
+//note when we do req.user?.id we get mongo db id this happens because mongoose converts the string id in the id 
+//of mongoose i.e we are originally getting string id in pipelines setup no mongoose is involved
+//so here we convert it manually
+const getWatchHistory= asyncHandler(async(req,res)=>{
+  const user= await User.aggregate([
+    {
+      $match:{
+        _id: new mongoose.Types.ObjectId(req.user._id)
+      }
+    },
+    {
+      $lookup:{
+        from:"videos",
+        localField:"watchHistory",
+        foreignField:"_id",
+        as:"watchHistory",
+        pipeline:[
+          {
+            $lookup:{
+              from:"users",
+              localField:"owner",
+              foreignField: "_id",
+              as:"owner",
+              pipeline:[
+                {
+                  $project: {
+                    fullName: 1,
+                    userName:1,
+                    avatar:1
+                  }
+                }
+              ]
+            }
+          },{
+            //yahan se hum frontend ko array ka first element bhejne ke liye pipeline bna rhe hai
+            $addFields:{
+              owner:{
+                $first:"$owner"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ])
+
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(
+      200,
+      user[0].watchHistory,
+      "watchHistory fetched successfully"
+    )
+  )
+})
+
 export {
   registerUser,
   loginUser,
@@ -382,5 +508,7 @@ export {
   getUser,
   updateAccountDetails,
   updateAvatar,
-  updateCoverImage
+  updateCoverImage,
+  getUserChannelProfile,
+  getWatchHistory
 };
